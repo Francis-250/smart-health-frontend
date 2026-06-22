@@ -1,0 +1,49 @@
+export type TipCategory =
+  | "Burns"
+  | "Choking"
+  | "CPR"
+  | "Bleeding"
+  | "Fractures"
+  | "Allergies"
+  | "Other";
+
+export type SeverityLevel = "Low" | "Medium" | "High" | "Critical";
+
+export interface FirstAidTip {
+  id: string;
+  title: string;
+  author: string;
+  category: TipCategory;
+  severity: SeverityLevel;
+  description: string;
+  symptoms: string;
+  procedure: string;
+  warnings: string;
+  updatedAt: string;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "Patient" | "Reviewer" | "Admin";
+  status: "Active" | "Suspended";
+  joinedAt: string;
+}
+
+export interface Reviewer {
+  id: string;
+  name: string;
+  email: string;
+  specialty: string;
+  tipsReviewed: number;
+  status: "Active" | "Pending";
+}
+
+export interface Hospital {
+  id: string;
+  name: string;
+  location: string;
+  contact: string;
+  status: "Active" | "Inactive";
+}
