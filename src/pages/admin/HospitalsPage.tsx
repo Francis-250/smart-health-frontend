@@ -1,17 +1,45 @@
+import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
+import { CreateHospitalModal, type HospitalFormData } from "../../components/admin/CreateHospitalModal";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import { mockHospitals } from "../../data/mockData";
+import type { Hospital } from "../../types/admin";
 
 export function HospitalsPage() {
+  const [hospitals, setHospitals] = useState<Hospital[]>(mockHospitals);
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) return hospitals;
+    return hospitals.filter(
+      (h) =>
+        h.name.toLowerCase().includes(query) ||
+        h.location.toLowerCase().includes(query) ||
+        h.contact.toLowerCase().includes(query),
+    );
+  }, [hospitals, search]);
+
+  function handleAdd(data: HospitalFormData) {
+    const newHospital: Hospital = {
+      id: String(Date.now()),
+      ...data,
+    };
+    setHospitals((prev) => [newHospital, ...prev]);
+    toast.success("Hospital added successfully");
+  }
+
   return (
     <div>
       <PageHeader
         section="Management"
         title="Hospitals"
         action={
-          <Button>
+          <Button onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Add hospital
           </Button>
@@ -24,11 +52,13 @@ export function HospitalsPage() {
           <input
             type="search"
             placeholder="Search hospitals..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
         </div>
         <p className="text-sm text-gray-500">
-          {mockHospitals.length} of {mockHospitals.length} hospitals
+          {filtered.length} of {hospitals.length} hospitals
         </p>
       </div>
 
@@ -40,7 +70,7 @@ export function HospitalsPage() {
           { key: "status", label: "Status" },
         ]}
       >
-        {mockHospitals.map((hospital) => (
+        {filtered.map((hospital) => (
           <tr key={hospital.id} className="hover:bg-gray-50">
             <td className="px-5 py-4 font-medium text-gray-900">{hospital.name}</td>
             <td className="px-5 py-4 text-gray-600">{hospital.location}</td>
@@ -60,6 +90,12 @@ export function HospitalsPage() {
           </tr>
         ))}
       </DataTable>
+
+      <CreateHospitalModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleAdd}
+      />
     </div>
   );
 }

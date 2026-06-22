@@ -1,84 +1,26 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Search } from "lucide-react";
 import { PageHeader } from "../../components/admin/PageHeader";
-import { CreateTipModal, type TipFormData } from "../../components/admin/CreateTipModal";
-import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import { mockTips } from "../../data/mockData";
-import type { FirstAidTip } from "../../types/admin";
 
 export function FirstAidTipsPage() {
-  const [tips, setTips] = useState<FirstAidTip[]>(mockTips);
   const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingTip, setEditingTip] = useState<FirstAidTip | null>(null);
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase().trim();
-    if (!query) return tips;
-    return tips.filter(
+    if (!query) return mockTips;
+    return mockTips.filter(
       (tip) =>
         tip.title.toLowerCase().includes(query) ||
         tip.author.toLowerCase().includes(query) ||
         tip.category.toLowerCase().includes(query),
     );
-  }, [tips, search]);
-
-  function handleCreate(data: TipFormData) {
-    if (editingTip) {
-      setTips((prev) =>
-        prev.map((tip) =>
-          tip.id === editingTip.id
-            ? {
-                ...tip,
-                ...data,
-                updatedAt: new Date().toISOString().slice(0, 10),
-              }
-            : tip,
-        ),
-      );
-      toast.success("Tip updated successfully");
-    } else {
-      const newTip: FirstAidTip = {
-        id: String(Date.now()),
-        author: "Dr. Kevin U.",
-        updatedAt: new Date().toISOString().slice(0, 10),
-        ...data,
-      };
-      setTips((prev) => [newTip, ...prev]);
-      toast.success("Tip created successfully");
-    }
-    setEditingTip(null);
-  }
-
-  function handleDelete(id: string) {
-    setTips((prev) => prev.filter((tip) => tip.id !== id));
-    toast.success("Tip deleted");
-  }
-
-  function openCreate() {
-    setEditingTip(null);
-    setModalOpen(true);
-  }
-
-  function openEdit(tip: FirstAidTip) {
-    setEditingTip(tip);
-    setModalOpen(true);
-  }
+  }, [search]);
 
   return (
     <div>
-      <PageHeader
-        section="Content"
-        title="First Aid Tips"
-        action={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            New tip
-          </Button>
-        }
-      />
+      <PageHeader section="Content" title="First Aid Tips" />
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="relative max-w-sm flex-1">
@@ -92,7 +34,7 @@ export function FirstAidTipsPage() {
           />
         </div>
         <p className="text-sm text-gray-500">
-          {filtered.length} of {tips.length} tips
+          {filtered.length} of {mockTips.length} tips
         </p>
       </div>
 
@@ -102,7 +44,6 @@ export function FirstAidTipsPage() {
           { key: "category", label: "Category" },
           { key: "severity", label: "Severity" },
           { key: "updated", label: "Updated" },
-          { key: "actions", label: "Actions", className: "text-right" },
         ]}
       >
         {filtered.map((tip) => (
@@ -129,40 +70,9 @@ export function FirstAidTipsPage() {
               </span>
             </td>
             <td className="px-5 py-4 text-gray-500">{tip.updatedAt}</td>
-            <td className="px-5 py-4">
-              <div className="flex items-center justify-end gap-1">
-                <button
-                  type="button"
-                  onClick={() => openEdit(tip)}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand"
-                  aria-label={`Edit ${tip.title}`}
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(tip.id)}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                  aria-label={`Delete ${tip.title}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </td>
           </tr>
         ))}
       </DataTable>
-
-      <CreateTipModal
-        key={editingTip?.id ?? "new"}
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingTip(null);
-        }}
-        onSubmit={handleCreate}
-        initialData={editingTip}
-      />
     </div>
   );
 }

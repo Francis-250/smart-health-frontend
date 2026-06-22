@@ -1,22 +1,12 @@
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { PageHeader } from "../../components/admin/PageHeader";
-import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import { mockReviewers } from "../../data/mockData";
 
 export function ReviewersPage() {
   return (
     <div>
-      <PageHeader
-        section="Management"
-        title="Reviewers"
-        action={
-          <Button>
-            <Plus className="h-4 w-4" />
-            Add reviewer
-          </Button>
-        }
-      />
+      <PageHeader section="Management" title="Reviewers" />
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="relative max-w-sm flex-1">
