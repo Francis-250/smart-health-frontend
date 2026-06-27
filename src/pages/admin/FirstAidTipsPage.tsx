@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { CreateTipModal, type TipFormData } from "../../components/admin/CreateTipModal";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
-import { createFirstAidTip, getFirstAidTips } from "../../lib/adminApi";
+import { Modal } from "../../components/ui/Modal";
+import { createFirstAidTip, deleteFirstAidTip, getFirstAidTips, updateFirstAidTip } from "../../lib/adminApi";
 import { getApiError } from "../../lib/api";
-import type { SeverityLevel } from "../../types/admin";
+import type { FirstAidTip, SeverityLevel } from "../../types/admin";
 
 const severityToRisk: Record<SeverityLevel, "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY"> = {
   Critical: "EMERGENCY",
@@ -26,7 +27,9 @@ function lines(value: string) {
 
 export function FirstAidTipsPage() {
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<FirstAidTip | null>(null);
   const [search, setSearch] = useState("");
+  const [viewing, setViewing] = useState<FirstAidTip | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const { data: tips = [], error, isLoading } = useQuery({
     queryKey: ["admin-first-aid-tips"],
@@ -49,6 +52,31 @@ export function FirstAidTipsPage() {
     },
     onError: (requestError) => toast.error(getApiError(requestError)),
   });
+  const updateMutation = useMutation({
+    mutationFn: ({ data, id }: { data: TipFormData; id: string }) =>
+      updateFirstAidTip(id, {
+        category: data.category,
+        description: data.description.trim(),
+        emergencyLevel: severityToRisk[data.severity],
+        isOfflineReady: true,
+        steps: lines(data.procedure || data.description),
+        title: data.title.trim(),
+        warnings: lines(data.warnings),
+      }),
+    onSuccess: () => {
+      toast.success("First-aid tip updated");
+      queryClient.invalidateQueries({ queryKey: ["admin-first-aid-tips"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteFirstAidTip,
+    onSuccess: () => {
+      toast.success("First-aid tip deleted");
+      queryClient.invalidateQueries({ queryKey: ["admin-first-aid-tips"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -67,7 +95,10 @@ export function FirstAidTipsPage() {
         section="Content"
         title="First Aid Tips"
         action={
-          <Button onClick={() => setModalOpen(true)}>
+          <Button onClick={() => {
+            setEditing(null);
+            setModalOpen(true);
+          }}>
             <Plus className="h-4 w-4" />
             Create tip
           </Button>
@@ -105,6 +136,7 @@ export function FirstAidTipsPage() {
             { key: "category", label: "Category" },
             { key: "severity", label: "Severity" },
             { key: "updated", label: "Updated" },
+            { key: "actions", label: "Actions", className: "text-right" },
           ]}
         >
           {filtered.map((tip) => (
@@ -131,16 +163,78 @@ export function FirstAidTipsPage() {
                 </span>
               </td>
               <td className="px-5 py-4 text-gray-500">{tip.updatedAt}</td>
+              <td className="px-5 py-4">
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 hover:text-brand"
+                    onClick={() => setViewing(tip)}
+                    type="button"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 hover:text-brand"
+                    onClick={() => {
+                      setEditing(tip);
+                      setModalOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-lg border border-red-100 p-2 text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      if (confirm(`Delete ${tip.title}?`)) {
+                        deleteMutation.mutate(tip.id);
+                      }
+                    }}
+                    type="button"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </DataTable>
       )}
 
       <CreateTipModal
+        initialData={editing}
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={(data) => createMutation.mutate(data)}
+        onClose={() => {
+          setEditing(null);
+          setModalOpen(false);
+        }}
+        onSubmit={(data) => {
+          if (editing) updateMutation.mutate({ data, id: editing.id });
+          else createMutation.mutate(data);
+        }}
       />
+      <Modal
+        open={Boolean(viewing)}
+        onClose={() => setViewing(null)}
+        title={viewing?.title ?? "First-aid tip"}
+        subtitle="Patient-facing first-aid content"
+      >
+        {viewing && (
+          <div className="space-y-5 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Description</p>
+              <p className="mt-1 text-gray-800">{viewing.description}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Procedure</p>
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-gray-800">{viewing.procedure || "No steps recorded."}</pre>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Warnings</p>
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-red-50 p-3 font-sans text-red-800">{viewing.warnings || "No warnings recorded."}</pre>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

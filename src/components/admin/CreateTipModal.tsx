@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import type { FirstAidTip, SeverityLevel, TipCategory } from "../../types/admin";
@@ -55,21 +55,26 @@ const inputClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
 export function CreateTipModal({ open, onClose, onSubmit, initialData }: CreateTipModalProps) {
-  const [form, setForm] = useState<TipFormData>(
-    initialData
-      ? {
-          title: initialData.title,
-          category: initialData.category,
-          severity: initialData.severity,
-          description: initialData.description,
-          symptoms: initialData.symptoms,
-          procedure: initialData.procedure,
-          warnings: initialData.warnings,
-        }
-      : emptyForm,
-  );
+  const [form, setForm] = useState<TipFormData>(emptyForm);
 
   const isEdit = Boolean(initialData);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(
+      initialData
+        ? {
+            title: initialData.title,
+            category: initialData.category,
+            severity: initialData.severity,
+            description: initialData.description,
+            symptoms: initialData.symptoms,
+            procedure: initialData.procedure,
+            warnings: initialData.warnings,
+          }
+        : emptyForm,
+    );
+  }, [initialData, open]);
 
   function handleChange<K extends keyof TipFormData>(key: K, value: TipFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

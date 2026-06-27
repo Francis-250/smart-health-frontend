@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
+import type { Hospital } from "../../types/admin";
 
 export interface HospitalFormData {
   address: string;
@@ -24,13 +25,36 @@ const inputClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
 interface CreateHospitalModalProps {
+  initialData?: Hospital | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (data: HospitalFormData) => void;
 }
 
-export function CreateHospitalModal({ open, onClose, onSubmit }: CreateHospitalModalProps) {
-  const [form, setForm] = useState<HospitalFormData>(emptyForm);
+function toForm(hospital?: Hospital | null): HospitalFormData {
+  if (!hospital) return emptyForm;
+  return {
+    address: hospital.address ?? hospital.location,
+    isEmergency: hospital.isEmergency ?? hospital.status === "Active",
+    latitude: hospital.latitude ? String(hospital.latitude) : "",
+    longitude: hospital.longitude ? String(hospital.longitude) : "",
+    name: hospital.name,
+    phoneNumber: hospital.phoneNumber ?? hospital.contact,
+  };
+}
+
+export function CreateHospitalModal({
+  initialData,
+  open,
+  onClose,
+  onSubmit,
+}: CreateHospitalModalProps) {
+  const [form, setForm] = useState<HospitalFormData>(toForm(initialData));
+  const isEdit = Boolean(initialData);
+
+  useEffect(() => {
+    if (open) setForm(toForm(initialData));
+  }, [initialData, open]);
 
   function handleChange<K extends keyof HospitalFormData>(key: K, value: HospitalFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -47,14 +71,14 @@ export function CreateHospitalModal({ open, onClose, onSubmit }: CreateHospitalM
     <Modal
       open={open}
       onClose={onClose}
-      title="Add hospital"
+      title={isEdit ? "Edit hospital" : "Add hospital"}
       subtitle="Add a care location that patients can find during urgent situations."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Add hospital</Button>
+          <Button onClick={handleSubmit}>{isEdit ? "Save changes" : "Add hospital"}</Button>
         </>
       }
     >

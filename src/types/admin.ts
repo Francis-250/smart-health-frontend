@@ -41,9 +41,14 @@ export interface Reviewer {
 }
 
 export interface Hospital {
+  address?: string;
   id: string;
+  isEmergency?: boolean;
+  latitude?: number;
+  longitude?: number;
   name: string;
   location: string;
   contact: string;
+  phoneNumber?: string;
   status: "Active" | "Inactive";
 }

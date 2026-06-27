@@ -98,10 +98,15 @@ export function mapReviewer(user: BackendUser): Reviewer {
 
 export function mapHospital(hospital: BackendHospital): Hospital {
   return {
+    address: hospital.address,
     id: hospital.id,
     contact: hospital.phoneNumber ?? hospital.email ?? "Not provided",
+    isEmergency: hospital.isEmergency,
+    latitude: hospital.latitude,
     location: hospital.address,
+    longitude: hospital.longitude,
     name: hospital.name,
+    phoneNumber: hospital.phoneNumber ?? "",
     status: hospital.isEmergency ? "Active" : "Inactive",
   };
 }
@@ -140,6 +145,18 @@ export async function getUsers() {
   };
 }
 
+export async function updateUserRole(
+  id: string,
+  role: BackendUser["role"],
+) {
+  const { data } = await api.patch<BackendUser>(`/users/${id}/role`, { role });
+  return mapUser(data);
+}
+
+export async function deactivateUser(id: string) {
+  await api.delete(`/users/${id}`);
+}
+
 export async function getReviewers() {
   const users = await getUsers();
   return users.raw
@@ -164,6 +181,25 @@ export async function createHospital(data: {
   return mapHospital(response.data);
 }
 
+export async function updateHospital(
+  id: string,
+  data: {
+    address: string;
+    isEmergency: boolean;
+    latitude: number;
+    longitude: number;
+    name: string;
+    phoneNumber?: string;
+  },
+) {
+  const response = await api.put<BackendHospital>(`/hospitals/${id}`, data);
+  return mapHospital(response.data);
+}
+
+export async function deleteHospital(id: string) {
+  await api.delete(`/hospitals/${id}`);
+}
+
 export async function getFirstAidTips(search?: string) {
   const { data } = await api.get<BackendFirstAidTip[]>("/first-aid-tips", {
     params: search ? { search } : undefined,
@@ -182,4 +218,27 @@ export async function createFirstAidTip(data: {
 }) {
   const response = await api.post<BackendFirstAidTip>("/first-aid-tips", data);
   return mapFirstAidTip(response.data);
+}
+
+export async function updateFirstAidTip(
+  id: string,
+  data: {
+    category: string;
+    description: string;
+    emergencyLevel: BackendFirstAidTip["emergencyLevel"];
+    isOfflineReady: boolean;
+    steps: string[];
+    title: string;
+    warnings: string[];
+  },
+) {
+  const response = await api.put<BackendFirstAidTip>(
+    `/first-aid-tips/${id}`,
+    data,
+  );
+  return mapFirstAidTip(response.data);
+}
+
+export async function deleteFirstAidTip(id: string) {
+  await api.delete(`/first-aid-tips/${id}`);
 }
