@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRight,
@@ -20,48 +21,13 @@ import {
 } from "../../data/mockAnalytics";
 import { mockHospitals, mockReviewers, mockTips, mockUsers } from "../../data/mockData";
 import { useSettingsStore } from "../../store/settingsStore";
+import { getDashboardStats } from "../../lib/adminApi";
+import { getApiError } from "../../lib/api";
 
 const activeUsers = mockUsers.filter((u) => u.status === "Active").length;
-const activeHospitals = mockHospitals.filter((h) => h.status === "Active").length;
 const activeReviewers = mockReviewers.filter((r) => r.status === "Active").length;
-const totalTipViews = mockTipUsageData.reduce((sum, t) => sum + t.views, 0);
 const weeklyAIQueries = chartAIUsageWeekly.reduce((sum, d) => sum + d.queries, 0);
 const topTip = [...mockTipUsageData].sort((a, b) => b.views - a.views)[0];
-
-const statCards = [
-  {
-    label: "Total Users",
-    value: mockUsers.length,
-    sub: `${activeUsers} active`,
-    icon: Users,
-    gradient: "from-blue-500 to-blue-600",
-    link: "/admin/users",
-  },
-  {
-    label: "First Aid Tips",
-    value: mockTips.length,
-    sub: `${totalTipViews.toLocaleString()} total views`,
-    icon: BookOpen,
-    gradient: "from-brand to-teal-600",
-    link: "/admin/tips",
-  },
-  {
-    label: "Hospitals",
-    value: mockHospitals.length,
-    sub: `${activeHospitals} in network`,
-    icon: Building2,
-    gradient: "from-violet-500 to-purple-600",
-    link: "/admin/hospitals",
-  },
-  {
-    label: "Reviewers",
-    value: mockReviewers.length,
-    sub: `${activeReviewers} active`,
-    icon: UserCheck,
-    gradient: "from-amber-500 to-orange-500",
-    link: "/admin/reviewers",
-  },
-];
 
 const modules = [
   { to: "/admin/users", label: "Users", desc: "Manage patient & admin accounts", icon: Users },
@@ -83,7 +49,45 @@ const recentActivity = [
 export function OverviewPage() {
   const user = useAuthStore((s) => s.user);
   const aiLimits = useSettingsStore((s) => s.aiLimits);
+  const { data: stats, error: statsError } = useQuery({
+    queryKey: ["admin-dashboard"],
+    queryFn: getDashboardStats,
+  });
   const aiUsagePercent = Math.min(100, Math.round((weeklyAIQueries / aiLimits.dailyQueryLimit) * 100 * 7));
+  const statCards = [
+    {
+      label: "Total Users",
+      value: stats?.users ?? mockUsers.length,
+      sub: `${stats?.patients ?? activeUsers} patients`,
+      icon: Users,
+      gradient: "from-blue-500 to-blue-600",
+      link: "/admin/users",
+    },
+    {
+      label: "Assessments",
+      value: stats?.assessments ?? mockTips.length,
+      sub: `${stats?.emergencyAssessments ?? 0} emergency`,
+      icon: BookOpen,
+      gradient: "from-brand to-teal-600",
+      link: "/admin/reports",
+    },
+    {
+      label: "Conversations",
+      value: stats?.conversations ?? mockHospitals.length,
+      sub: "AI health checks",
+      icon: Building2,
+      gradient: "from-violet-500 to-purple-600",
+      link: "/admin/analytics",
+    },
+    {
+      label: "Reviewers",
+      value: stats?.reviewers ?? activeReviewers,
+      sub: `${stats?.activeSos ?? 0} active SOS`,
+      icon: UserCheck,
+      gradient: "from-amber-500 to-orange-500",
+      link: "/admin/reviewers",
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -98,6 +102,11 @@ export function OverviewPage() {
           <p className="mt-2 max-w-xl text-sm text-white/80">
             Monitor users, first aid content, hospital network, AI usage, and system health — all in one place.
           </p>
+          {statsError && (
+            <p className="mt-3 max-w-xl rounded-xl bg-white/15 px-3 py-2 text-xs text-white">
+              Live metrics unavailable: {getApiError(statsError)}
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               to="/admin/hospitals"

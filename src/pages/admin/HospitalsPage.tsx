@@ -1,37 +1,49 @@
 import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { CreateHospitalModal, type HospitalFormData } from "../../components/admin/CreateHospitalModal";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
-import { mockHospitals } from "../../data/mockData";
-import type { Hospital } from "../../types/admin";
+import { createHospital, getHospitals } from "../../lib/adminApi";
+import { getApiError } from "../../lib/api";
 
 export function HospitalsPage() {
-  const [hospitals, setHospitals] = useState<Hospital[]>(mockHospitals);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const { data: hospitals = [], error, isLoading } = useQuery({
+    queryKey: ["admin-hospitals"],
+    queryFn: getHospitals,
+  });
+  const createMutation = useMutation({
+    mutationFn: (data: HospitalFormData) =>
+      createHospital({
+        address: data.address.trim(),
+        isEmergency: data.isEmergency,
+        latitude: Number(data.latitude),
+        longitude: Number(data.longitude),
+        name: data.name.trim(),
+        phoneNumber: data.phoneNumber.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Hospital added");
+      queryClient.invalidateQueries({ queryKey: ["admin-hospitals"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase().trim();
     if (!query) return hospitals;
     return hospitals.filter(
-      (h) =>
-        h.name.toLowerCase().includes(query) ||
-        h.location.toLowerCase().includes(query) ||
-        h.contact.toLowerCase().includes(query),
+      (hospital) =>
+        hospital.name.toLowerCase().includes(query) ||
+        hospital.location.toLowerCase().includes(query) ||
+        hospital.contact.toLowerCase().includes(query),
     );
   }, [hospitals, search]);
-
-  function handleAdd(data: HospitalFormData) {
-    const newHospital: Hospital = {
-      id: String(Date.now()),
-      ...data,
-    };
-    setHospitals((prev) => [newHospital, ...prev]);
-    toast.success("Hospital added successfully");
-  }
 
   return (
     <div>
@@ -62,39 +74,49 @@ export function HospitalsPage() {
         </p>
       </div>
 
-      <DataTable
-        columns={[
-          { key: "name", label: "Hospital" },
-          { key: "location", label: "Location" },
-          { key: "contact", label: "Contact" },
-          { key: "status", label: "Status" },
-        ]}
-      >
-        {filtered.map((hospital) => (
-          <tr key={hospital.id} className="hover:bg-gray-50">
-            <td className="px-5 py-4 font-medium text-gray-900">{hospital.name}</td>
-            <td className="px-5 py-4 text-gray-600">{hospital.location}</td>
-            <td className="px-5 py-4 text-gray-600">{hospital.contact}</td>
-            <td className="px-5 py-4">
-              <span
-                className={[
-                  "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  hospital.status === "Active"
-                    ? "bg-green-50 text-green-700"
-                    : "bg-gray-100 text-gray-600",
-                ].join(" ")}
-              >
-                {hospital.status}
-              </span>
-            </td>
-          </tr>
-        ))}
-      </DataTable>
+      {isLoading ? (
+        <p className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+          Loading hospitals…
+        </p>
+      ) : error ? (
+        <p className="rounded-xl border border-red-100 bg-red-50 p-5 text-sm text-red-700">
+          {getApiError(error)}
+        </p>
+      ) : (
+        <DataTable
+          columns={[
+            { key: "name", label: "Hospital" },
+            { key: "location", label: "Location" },
+            { key: "contact", label: "Contact" },
+            { key: "status", label: "Emergency" },
+          ]}
+        >
+          {filtered.map((hospital) => (
+            <tr key={hospital.id} className="hover:bg-gray-50">
+              <td className="px-5 py-4 font-medium text-gray-900">{hospital.name}</td>
+              <td className="px-5 py-4 text-gray-600">{hospital.location}</td>
+              <td className="px-5 py-4 text-gray-600">{hospital.contact}</td>
+              <td className="px-5 py-4">
+                <span
+                  className={[
+                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    hospital.status === "Active"
+                      ? "bg-green-50 text-green-700"
+                      : "bg-gray-100 text-gray-600",
+                  ].join(" ")}
+                >
+                  {hospital.status === "Active" ? "Available" : "Unavailable"}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      )}
 
       <CreateHospitalModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSubmit={handleAdd}
+        onSubmit={(data) => createMutation.mutate(data)}
       />
     </div>
   );

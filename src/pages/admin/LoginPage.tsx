@@ -7,28 +7,28 @@ import { useAuthStore } from "../../store/authStore";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuthStore();
-  const [email, setEmail] = useState("vecuzoqe@mailinator.com");
-  const [password, setPassword] = useState("Pa$$w0rd!");
+  const { error, hydrated, isAuthenticated, login } = useAuthStore();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
+  if (hydrated && isAuthenticated) {
     return <Navigate to="/admin" replace />;
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
 
-    const success = login(email.trim(), password);
+    const success = await login(email.trim(), password);
     setLoading(false);
 
     if (success) {
-      toast.success("Welcome back, Admin!");
+      toast.success("Signed in to Smart Health Admin");
       navigate("/admin");
     } else {
-      toast.error("Invalid email or password");
+      toast.error(useAuthStore.getState().error ?? "Unable to sign in");
     }
   }
 
@@ -43,21 +43,21 @@ export function LoginPage() {
             <Activity className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-lg font-semibold">First Aid Assistant</p>
+            <p className="text-lg font-semibold">Smart Health</p>
             <p className="text-sm text-white/70">Admin Console</p>
           </div>
         </div>
 
         <div>
           <h1 className="text-3xl font-semibold leading-tight">
-            Manage life-saving content with confidence.
+            Manage the clinical safety layer with confidence.
           </h1>
           <p className="mt-4 max-w-md text-white/80">
-            Control users, reviewers, hospitals, and first aid tips from one secure dashboard.
+            Review platform activity, care locations, first-aid content, and administrator reports.
           </p>
         </div>
 
-        <p className="text-sm text-white/50">© 2024 First Aid Assistant</p>
+        <p className="text-sm text-white/50">Smart Health administrator access only</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-gray-50 px-6 py-12">
@@ -68,7 +68,7 @@ export function LoginPage() {
                 <Activity className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">First Aid Assistant</p>
+                <p className="text-sm font-semibold text-gray-900">Smart Health</p>
                 <p className="text-xs text-gray-500">Admin Console</p>
               </div>
             </div>
@@ -76,7 +76,7 @@ export function LoginPage() {
 
           <h2 className="text-2xl font-semibold text-gray-900">Admin sign in</h2>
           <p className="mt-2 text-sm text-gray-500">
-            Enter your credentials to access the dashboard.
+            Use an administrator account. Patient and reviewer accounts stay on mobile.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -91,7 +91,7 @@ export function LoginPage() {
                   type="email"
                   required
                   autoComplete="email"
-                  placeholder="vecuzoqe@mailinator.com"
+                  placeholder="admin@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={inputClass}
@@ -126,6 +126,12 @@ export function LoginPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+
             <Button
               type="submit"
               className="w-full py-2.5"
@@ -136,7 +142,7 @@ export function LoginPage() {
           </form>
 
           <p className="mt-6 rounded-lg bg-brand-light px-4 py-3 text-xs text-brand">
-            Demo: <strong>vecuzoqe@mailinator.com</strong> / <strong>Pa$$w0rd!</strong>
+            Administrator access is restricted to approved Smart Health staff.
           </p>
         </div>
       </div>

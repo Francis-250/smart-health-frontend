@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
-import type { Hospital } from "../../types/admin";
 
 export interface HospitalFormData {
+  address: string;
+  isEmergency: boolean;
+  latitude: string;
+  longitude: string;
   name: string;
-  location: string;
-  contact: string;
-  status: Hospital["status"];
+  phoneNumber: string;
 }
 
 const emptyForm: HospitalFormData = {
+  address: "",
+  isEmergency: true,
+  latitude: "",
+  longitude: "",
   name: "",
-  location: "",
-  contact: "",
-  status: "Active",
+  phoneNumber: "",
 };
 
 const inputClass =
@@ -34,7 +37,7 @@ export function CreateHospitalModal({ open, onClose, onSubmit }: CreateHospitalM
   }
 
   function handleSubmit() {
-    if (!form.name.trim() || !form.location.trim()) return;
+    if (!form.name.trim() || !form.address.trim() || !form.latitude || !form.longitude) return;
     onSubmit(form);
     setForm(emptyForm);
     onClose();
@@ -45,7 +48,7 @@ export function CreateHospitalModal({ open, onClose, onSubmit }: CreateHospitalM
       open={open}
       onClose={onClose}
       title="Add hospital"
-      subtitle="Register a new partner hospital to the network."
+      subtitle="Add a care location that patients can find during urgent situations."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -62,40 +65,64 @@ export function CreateHospitalModal({ open, onClose, onSubmit }: CreateHospitalM
           </label>
           <input
             className={inputClass}
-            placeholder="e.g. Kigali Central Hospital"
+            placeholder="e.g. Kigali University Teaching Hospital"
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
           />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Location <span className="text-red-500">*</span>
+            Address <span className="text-red-500">*</span>
           </label>
           <input
             className={inputClass}
-            placeholder="e.g. Kigali, Rwanda"
-            value={form.location}
-            onChange={(e) => handleChange("location", e.target.value)}
+            placeholder="e.g. KN 4 Ave, Kigali"
+            value={form.address}
+            onChange={(e) => handleChange("address", e.target.value)}
           />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Latitude <span className="text-red-500">*</span>
+            </label>
+            <input
+              className={inputClass}
+              placeholder="-1.9536"
+              value={form.latitude}
+              onChange={(e) => handleChange("latitude", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Longitude <span className="text-red-500">*</span>
+            </label>
+            <input
+              className={inputClass}
+              placeholder="30.0605"
+              value={form.longitude}
+              onChange={(e) => handleChange("longitude", e.target.value)}
+            />
+          </div>
+        </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Contact</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Phone number</label>
           <input
             className={inputClass}
             placeholder="e.g. +250 788 000 000"
-            value={form.contact}
-            onChange={(e) => handleChange("contact", e.target.value)}
+            value={form.phoneNumber}
+            onChange={(e) => handleChange("phoneNumber", e.target.value)}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Status</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Emergency services</label>
           <select
             className={inputClass}
-            value={form.status}
-            onChange={(e) => handleChange("status", e.target.value as Hospital["status"])}
+            value={form.isEmergency ? "true" : "false"}
+            onChange={(e) => handleChange("isEmergency", e.target.value === "true")}
           >
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
+            <option value="true">Available</option>
+            <option value="false">Not available</option>
           </select>
         </div>
       </div>
