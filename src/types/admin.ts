@@ -20,6 +20,7 @@ export interface FirstAidTip {
   description: string;
   symptoms: string;
   procedure: string;
+  approvalStatus: "Pending" | "Approved" | "Rejected";
   warnings: string;
   updatedAt: string;
 }

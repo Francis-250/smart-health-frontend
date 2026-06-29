@@ -45,6 +45,10 @@ export type BackendFirstAidTip = {
   imageUrl?: string | null;
   videoUrl?: string | null;
   isOfflineReady: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  submittedById?: string | null;
+  approvedById?: string | null;
+  approvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -72,6 +76,12 @@ function mapSeverity(level: BackendFirstAidTip["emergencyLevel"]): SeverityLevel
   if (level === "HIGH") return "High";
   if (level === "MEDIUM") return "Medium";
   return "Low";
+}
+
+function mapTipStatus(status: BackendFirstAidTip["status"]): FirstAidTip["approvalStatus"] {
+  if (status === "APPROVED") return "Approved";
+  if (status === "REJECTED") return "Rejected";
+  return "Pending";
 }
 
 export function mapUser(user: BackendUser): AdminUser {
@@ -118,6 +128,7 @@ export function mapFirstAidTip(tip: BackendFirstAidTip): FirstAidTip {
     category: tip.category as FirstAidTip["category"],
     description: tip.description,
     procedure: tip.steps.join("\n"),
+    approvalStatus: mapTipStatus(tip.status),
     severity: mapSeverity(tip.emergencyLevel),
     symptoms: "",
     title: tip.title,
@@ -201,7 +212,7 @@ export async function deleteHospital(id: string) {
 }
 
 export async function getFirstAidTips(search?: string) {
-  const { data } = await api.get<BackendFirstAidTip[]>("/first-aid-tips", {
+  const { data } = await api.get<BackendFirstAidTip[]>("/first-aid-tips/manage", {
     params: search ? { search } : undefined,
   });
   return data.map(mapFirstAidTip);
@@ -241,4 +252,15 @@ export async function updateFirstAidTip(
 
 export async function deleteFirstAidTip(id: string) {
   await api.delete(`/first-aid-tips/${id}`);
+}
+
+export async function updateFirstAidTipStatus(
+  id: string,
+  status: BackendFirstAidTip["status"],
+) {
+  const response = await api.patch<BackendFirstAidTip>(
+    `/first-aid-tips/${id}/status`,
+    { status },
+  );
+  return mapFirstAidTip(response.data);
 }

@@ -1,17 +1,29 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, Edit, Eye, Plus, Search, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
-import { CreateTipModal, type TipFormData } from "../../components/admin/CreateTipModal";
+import {
+  CreateTipModal,
+  type TipFormData,
+} from "../../components/admin/CreateTipModal";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import { Modal } from "../../components/ui/Modal";
-import { createFirstAidTip, deleteFirstAidTip, getFirstAidTips, updateFirstAidTip } from "../../lib/adminApi";
+import {
+  createFirstAidTip,
+  deleteFirstAidTip,
+  getFirstAidTips,
+  updateFirstAidTip,
+  updateFirstAidTipStatus,
+} from "../../lib/adminApi";
 import { getApiError } from "../../lib/api";
 import type { FirstAidTip, SeverityLevel } from "../../types/admin";
 
-const severityToRisk: Record<SeverityLevel, "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY"> = {
+const severityToRisk: Record<
+  SeverityLevel,
+  "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY"
+> = {
   Critical: "EMERGENCY",
   High: "HIGH",
   Low: "LOW",
@@ -31,7 +43,11 @@ export function FirstAidTipsPage() {
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<FirstAidTip | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const { data: tips = [], error, isLoading } = useQuery({
+  const {
+    data: tips = [],
+    error,
+    isLoading,
+  } = useQuery({
     queryKey: ["admin-first-aid-tips"],
     queryFn: () => getFirstAidTips(),
   });
@@ -77,6 +93,26 @@ export function FirstAidTipsPage() {
     },
     onError: (requestError) => toast.error(getApiError(requestError)),
   });
+  const statusMutation = useMutation({
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+    }) => updateFirstAidTipStatus(id, status),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.status === "APPROVED"
+          ? "First-aid tip approved"
+          : variables.status === "REJECTED"
+            ? "First-aid tip rejected"
+            : "First-aid tip moved to pending",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-first-aid-tips"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -95,10 +131,12 @@ export function FirstAidTipsPage() {
         section="Content"
         title="First Aid Tips"
         action={
-          <Button onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4" />
             Create tip
           </Button>
@@ -135,6 +173,7 @@ export function FirstAidTipsPage() {
             { key: "tip", label: "Tip" },
             { key: "category", label: "Category" },
             { key: "severity", label: "Severity" },
+            { key: "status", label: "Approval" },
             { key: "updated", label: "Updated" },
             { key: "actions", label: "Actions", className: "text-right" },
           ]}
@@ -162,9 +201,53 @@ export function FirstAidTipsPage() {
                   {tip.severity}
                 </span>
               </td>
+              <td className="px-5 py-4">
+                <span
+                  className={[
+                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    tip.approvalStatus === "Approved"
+                      ? "bg-green-50 text-green-700"
+                      : tip.approvalStatus === "Rejected"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-amber-50 text-amber-700",
+                  ].join(" ")}
+                >
+                  {tip.approvalStatus}
+                </span>
+              </td>
               <td className="px-5 py-4 text-gray-500">{tip.updatedAt}</td>
               <td className="px-5 py-4">
                 <div className="flex justify-end gap-2">
+                  {tip.approvalStatus !== "Approved" && (
+                    <button
+                      className="rounded-lg border border-green-100 p-2 text-green-700 hover:bg-green-50"
+                      onClick={() =>
+                        statusMutation.mutate({
+                          id: tip.id,
+                          status: "APPROVED",
+                        })
+                      }
+                      title="Approve"
+                      type="button"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  )}
+                  {tip.approvalStatus !== "Rejected" && (
+                    <button
+                      className="rounded-lg border border-red-100 p-2 text-red-600 hover:bg-red-50"
+                      onClick={() =>
+                        statusMutation.mutate({
+                          id: tip.id,
+                          status: "REJECTED",
+                        })
+                      }
+                      title="Reject"
+                      type="button"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 hover:text-brand"
                     onClick={() => setViewing(tip)}
@@ -221,16 +304,26 @@ export function FirstAidTipsPage() {
         {viewing && (
           <div className="space-y-5 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Description</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Description
+              </p>
               <p className="mt-1 text-gray-800">{viewing.description}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Procedure</p>
-              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-gray-800">{viewing.procedure || "No steps recorded."}</pre>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Procedure
+              </p>
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-gray-800">
+                {viewing.procedure || "No steps recorded."}
+              </pre>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Warnings</p>
-              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-red-50 p-3 font-sans text-red-800">{viewing.warnings || "No warnings recorded."}</pre>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Warnings
+              </p>
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-red-50 p-3 font-sans text-red-800">
+                {viewing.warnings || "No warnings recorded."}
+              </pre>
             </div>
           </div>
         )}
