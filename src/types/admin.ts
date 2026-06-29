@@ -4,6 +4,8 @@ export type TipCategory =
   | "CPR"
   | "Bleeding"
   | "Fractures"
+  | "Neurological"
+  | "Poisoning"
   | "Allergies"
   | "Other";
 

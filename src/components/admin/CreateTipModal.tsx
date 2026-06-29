@@ -19,6 +19,8 @@ const categories: TipCategory[] = [
   "CPR",
   "Bleeding",
   "Fractures",
+  "Neurological",
+  "Poisoning",
   "Allergies",
   "Other",
 ];
