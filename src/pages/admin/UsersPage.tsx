@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, Edit, Eye, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { DataTable } from "../../components/ui/DataTable";
 import { Modal } from "../../components/ui/Modal";
 import { getApiError } from "../../lib/api";
-import { deactivateUser, getUsers, updateUserRole } from "../../lib/adminApi";
+import { deactivateUser, getUsers, updateUserRole, updateUserStatus } from "../../lib/adminApi";
 import type { AdminUser } from "../../types/admin";
 
 const roleToBackend: Record<AdminUser["role"], "PATIENT" | "REVIEWER" | "ADMIN"> = {
@@ -41,6 +41,16 @@ export function UsersPage() {
     mutationFn: deactivateUser,
     onSuccess: () => {
       toast.success("User deactivated");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
+  const statusMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      updateUserStatus(id, isActive),
+    onSuccess: () => {
+      toast.success("User status updated");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] });
     },
@@ -104,7 +114,16 @@ export function UsersPage() {
               </td>
               <td className="px-5 py-4 text-gray-600">{user.role}</td>
               <td className="px-5 py-4">
-                <span className="inline-flex rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                <span
+                  className={[
+                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    user.status === "Active"
+                      ? "bg-green-50 text-green-700"
+                      : user.status === "Pending"
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-red-50 text-red-700",
+                  ].join(" ")}
+                >
                   {user.status}
                 </span>
               </td>
@@ -128,6 +147,16 @@ export function UsersPage() {
                   >
                     <Edit className="h-4 w-4" />
                   </button>
+                  {user.status === "Pending" && (
+                    <button
+                      className="rounded-lg border border-green-100 p-2 text-green-700 hover:bg-green-50"
+                      onClick={() => statusMutation.mutate({ id: user.id, isActive: true })}
+                      title="Approve doctor account"
+                      type="button"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     className="rounded-lg border border-red-100 p-2 text-red-600 hover:bg-red-50"
                     onClick={() => {

@@ -15,6 +15,7 @@ export type BackendUser = {
   lastName: string;
   phoneNumber?: string | null;
   role: "PATIENT" | "REVIEWER" | "ADMIN";
+  isActive: boolean;
   createdAt: string;
 };
 
@@ -113,7 +114,7 @@ export function mapUser(user: BackendUser): AdminUser {
     joinedAt: formatDate(user.createdAt),
     name: userName(user),
     role: mapRole(user.role),
-    status: "Active",
+    status: user.isActive ? "Active" : user.role === "REVIEWER" ? "Pending" : "Suspended",
   };
 }
 
@@ -123,7 +124,7 @@ export function mapReviewer(user: BackendUser): Reviewer {
     email: user.email,
     name: userName(user),
     specialty: "Clinical review",
-    status: "Active",
+    status: user.isActive ? "Active" : "Pending",
     tipsReviewed: 0,
   };
 }
@@ -198,6 +199,13 @@ export async function updateUserRole(
 
 export async function deactivateUser(id: string) {
   await api.delete(`/users/${id}`);
+}
+
+export async function updateUserStatus(id: string, isActive: boolean) {
+  const { data } = await api.patch<BackendUser>(`/users/${id}/status`, {
+    isActive,
+  });
+  return mapUser(data);
 }
 
 export async function getReviewers() {

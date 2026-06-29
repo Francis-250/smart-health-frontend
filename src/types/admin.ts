@@ -30,7 +30,7 @@ export interface AdminUser {
   name: string;
   email: string;
   role: "Patient" | "Reviewer" | "Admin";
-  status: "Active" | "Suspended";
+  status: "Active" | "Pending" | "Suspended";
   joinedAt: string;
 }
 

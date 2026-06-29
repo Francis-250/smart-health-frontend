@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, Edit, Eye, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { DataTable } from "../../components/ui/DataTable";
 import { Modal } from "../../components/ui/Modal";
-import { deactivateUser, getReviewers, updateUserRole } from "../../lib/adminApi";
+import { deactivateUser, getReviewers, updateUserRole, updateUserStatus } from "../../lib/adminApi";
 import { getApiError } from "../../lib/api";
 import type { Reviewer } from "../../types/admin";
 
@@ -34,6 +34,16 @@ export function ReviewersPage() {
     mutationFn: deactivateUser,
     onSuccess: () => {
       toast.success("Reviewer deactivated");
+      queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (requestError) => toast.error(getApiError(requestError)),
+  });
+  const statusMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      updateUserStatus(id, isActive),
+    onSuccess: () => {
+      toast.success("Doctor account approved");
       queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
@@ -98,7 +108,14 @@ export function ReviewersPage() {
               <td className="px-5 py-4 text-gray-600">{reviewer.specialty}</td>
               <td className="px-5 py-4 text-gray-600">{reviewer.tipsReviewed}</td>
               <td className="px-5 py-4">
-                <span className="inline-flex rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                <span
+                  className={[
+                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    reviewer.status === "Active"
+                      ? "bg-green-50 text-green-700"
+                      : "bg-amber-50 text-amber-700",
+                  ].join(" ")}
+                >
                   {reviewer.status}
                 </span>
               </td>
@@ -121,6 +138,16 @@ export function ReviewersPage() {
                   >
                     <Edit className="h-4 w-4" />
                   </button>
+                  {reviewer.status === "Pending" && (
+                    <button
+                      className="rounded-lg border border-green-100 p-2 text-green-700 hover:bg-green-50"
+                      onClick={() => statusMutation.mutate({ id: reviewer.id, isActive: true })}
+                      title="Approve doctor account"
+                      type="button"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     className="rounded-lg border border-red-100 p-2 text-red-600 hover:bg-red-50"
                     onClick={() => {
