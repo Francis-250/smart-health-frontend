@@ -13,21 +13,9 @@ import {
   Users,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import {
-  chartAIUsageWeekly,
-  chartTipCategories,
-  mockAIUsageData,
-  mockTipUsageData,
-} from "../../data/mockAnalytics";
-import { mockHospitals, mockReviewers, mockTips, mockUsers } from "../../data/mockData";
 import { useSettingsStore } from "../../store/settingsStore";
-import { getDashboardStats } from "../../lib/adminApi";
+import { getAnalytics, getDashboardStats, getFullReports } from "../../lib/adminApi";
 import { getApiError } from "../../lib/api";
-
-const activeUsers = mockUsers.filter((u) => u.status === "Active").length;
-const activeReviewers = mockReviewers.filter((r) => r.status === "Active").length;
-const weeklyAIQueries = chartAIUsageWeekly.reduce((sum, d) => sum + d.queries, 0);
-const topTip = [...mockTipUsageData].sort((a, b) => b.views - a.views)[0];
 
 const modules = [
   { to: "/admin/users", label: "Users", desc: "Manage patient & admin accounts", icon: Users },
@@ -38,14 +26,6 @@ const modules = [
   { to: "/admin/reports", label: "Reports", desc: "Custom data exports", icon: FileText },
 ];
 
-const recentActivity = [
-  { who: "Dr. Sarah Mwangi", action: "reviewed", target: "Treating Minor Burns", time: "2h ago", color: "bg-brand" },
-  { who: "Grace Njoroge", action: "registered as patient", target: "", time: "5h ago", color: "bg-blue-500" },
-  { who: "AI Assistant", action: "answered", target: "12 emergency queries", time: "Today", color: "bg-violet-500" },
-  { who: "Kigali Central Hospital", action: "added to network", target: "", time: "Yesterday", color: "bg-purple-500" },
-  { who: "Dr. James Ochieng", action: "approved", target: "CPR Basics tip", time: "2 days ago", color: "bg-amber-500" },
-];
-
 export function OverviewPage() {
   const user = useAuthStore((s) => s.user);
   const aiLimits = useSettingsStore((s) => s.aiLimits);
@@ -53,19 +33,60 @@ export function OverviewPage() {
     queryKey: ["admin-dashboard"],
     queryFn: getDashboardStats,
   });
+  const { data: analytics } = useQuery({
+    queryKey: ["admin-analytics"],
+    queryFn: getAnalytics,
+  });
+  const { data: reports } = useQuery({
+    queryKey: ["admin-full-reports"],
+    queryFn: getFullReports,
+  });
+  const weeklyAIQueries = (analytics?.aiUsageWeekly ?? []).reduce((sum, d) => sum + d.queries, 0);
+  const topCategory = [...(analytics?.tipCategories ?? [])].sort((a, b) => b.value - a.value)[0];
+  const latestAIQuery = reports?.aiUsage[0];
+  const pendingReviewers = reports?.reviewers.filter((r) => r.status !== "Active").length ?? 0;
+  const recentActivity = [
+    reports?.users[0] && {
+      who: reports.users[0].name,
+      action: "registered as",
+      target: reports.users[0].role,
+      time: reports.users[0].joinedAt,
+      color: "bg-blue-500",
+    },
+    latestAIQuery && {
+      who: latestAIQuery.userName,
+      action: "asked the AI assistant",
+      target: latestAIQuery.query,
+      time: latestAIQuery.date,
+      color: "bg-violet-500",
+    },
+    reports?.tipsUsage[0] && {
+      who: "First aid library",
+      action: "updated",
+      target: reports.tipsUsage[0].tipTitle,
+      time: reports.tipsUsage[0].lastViewed,
+      color: "bg-brand",
+    },
+  ].filter(Boolean) as {
+    who: string;
+    action: string;
+    target: string;
+    time: string;
+    color: string;
+  }[];
   const aiUsagePercent = Math.min(100, Math.round((weeklyAIQueries / aiLimits.dailyQueryLimit) * 100 * 7));
   const statCards = [
     {
       label: "Total Users",
-      value: stats?.users ?? mockUsers.length,
-      sub: `${stats?.patients ?? activeUsers} patients`,
+      value: stats?.users ?? 0,
+      sub: `${stats?.patients ?? 0} patients`,
       icon: Users,
       gradient: "from-blue-500 to-blue-600",
       link: "/admin/users",
     },
     {
       label: "Assessments",
-      value: stats?.assessments ?? mockTips.length,
+      value: stats?.assessments ?? 0,
       sub: `${stats?.emergencyAssessments ?? 0} emergency`,
       icon: BookOpen,
       gradient: "from-brand to-teal-600",
@@ -73,7 +94,7 @@ export function OverviewPage() {
     },
     {
       label: "Conversations",
-      value: stats?.conversations ?? mockHospitals.length,
+      value: stats?.conversations ?? 0,
       sub: "AI health checks",
       icon: Building2,
       gradient: "from-violet-500 to-purple-600",
@@ -81,7 +102,7 @@ export function OverviewPage() {
     },
     {
       label: "Reviewers",
-      value: stats?.reviewers ?? activeReviewers,
+      value: stats?.reviewers ?? 0,
       sub: `${stats?.activeSos ?? 0} active SOS`,
       icon: UserCheck,
       gradient: "from-amber-500 to-orange-500",
@@ -162,7 +183,7 @@ export function OverviewPage() {
             </Link>
           </div>
           <ul className="mt-5 space-y-4">
-            {recentActivity.map((item, i) => (
+            {recentActivity.length > 0 ? recentActivity.map((item, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.color}`} />
                 <div className="min-w-0 flex-1">
@@ -179,7 +200,11 @@ export function OverviewPage() {
                   <p className="text-xs text-gray-400">{item.time}</p>
                 </div>
               </li>
-            ))}
+            )) : (
+              <li className="rounded-xl bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                No recent activity has been recorded yet.
+              </li>
+            )}
           </ul>
         </div>
 
@@ -208,19 +233,23 @@ export function OverviewPage() {
               </p>
             </div>
             <p className="mt-4 truncate text-xs text-gray-500">
-              Latest: &ldquo;{mockAIUsageData[0]?.query}&rdquo;
+              Latest: {latestAIQuery ? `“${latestAIQuery.query}”` : "No AI queries recorded yet"}
             </p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
               <TrendingUp className="h-5 w-5 text-brand" />
-              Top tip
+              First aid coverage
             </h2>
-            <p className="mt-3 font-medium text-gray-900">{topTip?.tipTitle}</p>
-            <p className="text-sm text-gray-500">{topTip?.category} · {topTip?.views} views</p>
+            <p className="mt-3 font-medium text-gray-900">
+              {topCategory?.name ?? "No approved tips yet"}
+            </p>
+            <p className="text-sm text-gray-500">
+              {topCategory ? `${topCategory.value} approved tip${topCategory.value !== 1 ? "s" : ""}` : "Publish tips to populate this card"}
+            </p>
             <div className="mt-4 space-y-2">
-              {chartTipCategories.slice(0, 3).map((cat) => (
+              {(analytics?.tipCategories ?? []).slice(0, 3).map((cat) => (
                 <div key={cat.name} className="flex items-center justify-between text-xs">
                   <span className="text-gray-600">{cat.name}</span>
                   <span className="font-medium text-gray-900">{cat.value}</span>
@@ -261,15 +290,14 @@ export function OverviewPage() {
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Active patients</p>
           <p className="mt-2 text-lg font-semibold text-blue-900">
-            {mockUsers.filter((u) => u.role === "Patient" && u.status === "Active").length} users
+            {stats?.patients ?? 0} users
           </p>
           <p className="mt-1 text-xs text-blue-700/80">Registered and active in the platform</p>
         </div>
         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pending reviews</p>
           <p className="mt-2 text-lg font-semibold text-amber-900">
-            {mockReviewers.filter((r) => r.status === "Pending").length} reviewer
-            {mockReviewers.filter((r) => r.status === "Pending").length !== 1 ? "s" : ""}
+            {pendingReviewers} reviewer{pendingReviewers !== 1 ? "s" : ""}
           </p>
           <p className="mt-1 text-xs text-amber-700/80">Awaiting approval to review tips</p>
         </div>

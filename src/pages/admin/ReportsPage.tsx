@@ -1,17 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Download, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
-import {
-  mockAIUsageData,
-  mockHospitalReportData,
-  mockReviewerReportData,
-  mockTipUsageData,
-  mockUserReportData,
-} from "../../data/mockAnalytics";
-import { mockUsers } from "../../data/mockData";
+import { getFullReports } from "../../lib/adminApi";
+import { getApiError } from "../../lib/api";
 import type {
   AIUsageRow,
   HospitalReportRow,
@@ -24,8 +19,8 @@ import type {
 const reportOptions: { value: ReportType; label: string; description: string }[] = [
   { value: "all-content", label: "All system content", description: "Complete export of all system data in one report" },
   { value: "users", label: "User registrations", description: "Registered users with roles and status" },
-  { value: "ai-usage", label: "AI usage", description: "AI assistant queries and token consumption" },
-  { value: "tips-usage", label: "First Aid Tip usage", description: "Tip views and engagement metrics" },
+  { value: "ai-usage", label: "AI usage", description: "AI assistant queries recorded by the system" },
+  { value: "tips-usage", label: "First Aid Tip usage", description: "Published first aid content and tracked engagement" },
   { value: "reviewers", label: "Reviewer activity", description: "Reviews completed and turnaround time" },
   { value: "hospitals", label: "Hospital network", description: "Partner hospitals and referral data" },
 ];
@@ -228,62 +223,67 @@ function ReportSection({
 
 export function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>("users");
-  const [startDate, setStartDate] = useState("2024-01-01");
-  const [endDate, setEndDate] = useState("2024-05-31");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [userId, setUserId] = useState("");
   const [generated, setGenerated] = useState(false);
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["admin-full-reports"],
+    queryFn: getFullReports,
+  });
 
   const selectedOption = reportOptions.find((o) => o.value === reportType);
+  const users = data?.users ?? [];
 
   const allContentData = useMemo((): AllContentData | null => {
-    if (!generated || reportType !== "all-content") return null;
+    if (!generated || reportType !== "all-content" || !data) return null;
 
-    let users = filterByDate(mockUserReportData, startDate, endDate, "joinedAt");
-    let aiUsage = filterByDate(mockAIUsageData, startDate, endDate, "date");
-    const tipsUsage = filterByDate(mockTipUsageData, startDate, endDate, "lastViewed");
+    let reportUsers = filterByDate(data.users, startDate, endDate, "joinedAt");
+    let aiUsage = filterByDate(data.aiUsage, startDate, endDate, "date");
+    const tipsUsage = filterByDate(data.tipsUsage, startDate, endDate, "lastViewed");
 
     if (userId) {
-      users = users.filter((r) => r.id === userId);
-      const user = mockUsers.find((u) => u.id === userId);
+      reportUsers = reportUsers.filter((r) => r.id === userId);
+      const user = data.users.find((u) => u.id === userId);
       if (user) aiUsage = aiUsage.filter((r) => r.userName === user.name);
     }
 
     return {
-      users,
+      users: reportUsers,
       aiUsage,
       tipsUsage,
-      reviewers: mockReviewerReportData,
-      hospitals: mockHospitalReportData,
+      reviewers: data.reviewers,
+      hospitals: data.hospitals,
     };
-  }, [reportType, startDate, endDate, userId, generated]);
+  }, [data, reportType, startDate, endDate, userId, generated]);
 
   const reportData = useMemo(() => {
-    if (!generated || reportType === "all-content") return [];
+    if (!generated || reportType === "all-content" || !data) return [];
 
     switch (reportType) {
       case "users": {
-        let rows = filterByDate(mockUserReportData, startDate, endDate, "joinedAt");
+        let rows = filterByDate(data.users, startDate, endDate, "joinedAt");
         if (userId) rows = rows.filter((r) => r.id === userId);
         return rows;
       }
       case "ai-usage": {
-        let rows = filterByDate(mockAIUsageData, startDate, endDate, "date");
+        let rows = filterByDate(data.aiUsage, startDate, endDate, "date");
         if (userId) {
-          const user = mockUsers.find((u) => u.id === userId);
+          const user = data.users.find((u) => u.id === userId);
           if (user) rows = rows.filter((r) => r.userName === user.name);
         }
         return rows;
       }
       case "tips-usage":
-        return filterByDate(mockTipUsageData, startDate, endDate, "lastViewed");
+        return filterByDate(data.tipsUsage, startDate, endDate, "lastViewed");
       case "reviewers":
-        return mockReviewerReportData;
+        return data.reviewers;
       case "hospitals":
-        return mockHospitalReportData;
+        return data.hospitals;
       default:
         return [];
     }
-  }, [reportType, startDate, endDate, userId, generated]);
+  }, [data, reportType, startDate, endDate, userId, generated]);
 
   const totalAllRecords = allContentData
     ? allContentData.users.length +
@@ -294,6 +294,14 @@ export function ReportsPage() {
     : 0;
 
   function handleGenerate() {
+    if (isLoading) {
+      toast.message("Report data is still loading");
+      return;
+    }
+    if (error) {
+      toast.error(getApiError(error));
+      return;
+    }
     setGenerated(true);
     toast.success("Report generated");
   }
@@ -314,6 +322,18 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader section="Data" title="Custom Reports" />
+
+      {isLoading && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+          Loading live report data…
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-5 text-sm text-red-700">
+          {getApiError(error)}
+        </div>
+      )}
 
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
@@ -380,7 +400,7 @@ export function ReportsPage() {
               }}
             >
               <option value="">All users</option>
-              {mockUsers.map((u) => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                 </option>

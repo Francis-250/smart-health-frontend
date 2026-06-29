@@ -1,5 +1,12 @@
 import { api } from "./api";
 import type { AdminUser, FirstAidTip, Hospital, Reviewer, SeverityLevel } from "../types/admin";
+import type {
+  AIUsageRow,
+  HospitalReportRow,
+  ReviewerReportRow,
+  TipUsageRow,
+  UserReportRow,
+} from "../types/reports";
 
 export type BackendUser = {
   id: string;
@@ -19,6 +26,21 @@ export type DashboardStats = {
   patients: number;
   reviewers: number;
   users: number;
+};
+
+export type AnalyticsData = {
+  aiUsageWeekly: { day: string; queries: number }[];
+  hospitalReferrals: { name: string; referrals: number }[];
+  tipCategories: { name: string; value: number }[];
+  userRegistrations: { month: string; users: number }[];
+};
+
+export type FullReportsData = {
+  aiUsage: AIUsageRow[];
+  hospitals: HospitalReportRow[];
+  reviewers: ReviewerReportRow[];
+  tipsUsage: TipUsageRow[];
+  users: UserReportRow[];
 };
 
 export type BackendHospital = {
@@ -139,6 +161,16 @@ export function mapFirstAidTip(tip: BackendFirstAidTip): FirstAidTip {
 
 export async function getDashboardStats() {
   const { data } = await api.get<DashboardStats>("/admin/dashboard");
+  return data;
+}
+
+export async function getAnalytics() {
+  const { data } = await api.get<AnalyticsData>("/admin/analytics");
+  return data;
+}
+
+export async function getFullReports() {
+  const { data } = await api.get<FullReportsData>("/admin/reports/full");
   return data;
 }
 

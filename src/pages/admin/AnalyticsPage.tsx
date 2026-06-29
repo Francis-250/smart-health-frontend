@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -15,12 +16,8 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "../../components/admin/PageHeader";
-import {
-  chartAIUsageWeekly,
-  chartHospitalReferrals,
-  chartTipCategories,
-  chartUserRegistrations,
-} from "../../data/mockAnalytics";
+import { getAnalytics } from "../../lib/adminApi";
+import { getApiError } from "../../lib/api";
 
 const PIE_COLORS = ["#005f54", "#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4"];
 
@@ -35,14 +32,36 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
 }
 
 export function AnalyticsPage() {
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["admin-analytics"],
+    queryFn: getAnalytics,
+  });
+
+  const userRegistrations = data?.userRegistrations ?? [];
+  const tipCategories = data?.tipCategories ?? [];
+  const aiUsageWeekly = data?.aiUsageWeekly ?? [];
+  const hospitalReferrals = data?.hospitalReferrals ?? [];
+
   return (
     <div>
       <PageHeader section="Insights" title="Analytics" />
 
+      {isLoading && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+          Loading live analytics…
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-5 text-sm text-red-700">
+          {getApiError(error)}
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="User registrations" subtitle="Monthly new user sign-ups">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartUserRegistrations}>
+            <BarChart data={userRegistrations}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
@@ -52,11 +71,11 @@ export function AnalyticsPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="First Aid Tip views by category" subtitle="Total views per category">
+        <ChartCard title="Approved first aid tips by category" subtitle="Live content distribution">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={chartTipCategories}
+                data={tipCategories}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -65,7 +84,7 @@ export function AnalyticsPage() {
                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 labelLine={false}
               >
-                {chartTipCategories.map((_, index) => (
+                {tipCategories.map((_, index) => (
                   <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
               </Pie>
@@ -77,7 +96,7 @@ export function AnalyticsPage() {
 
         <ChartCard title="AI usage this week" subtitle="Daily AI assistant queries">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartAIUsageWeekly}>
+            <LineChart data={aiUsageWeekly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="day" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
@@ -94,9 +113,9 @@ export function AnalyticsPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Hospital referrals" subtitle="Patient referrals per partner hospital">
+        <ChartCard title="Hospital referrals" subtitle="Tracked referrals per partner hospital">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartHospitalReferrals} layout="vertical">
+            <BarChart data={hospitalReferrals} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis type="number" tick={{ fontSize: 12 }} />
               <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} />
